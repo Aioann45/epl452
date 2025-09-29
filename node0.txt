@@ -1,1 +1,10 @@
+MemTotal:       65708512 kB
+Intel Memory Latency Tools Outbound License Agreement.pdf
+Linux/
+Linux/redist.txt
+Linux/mlc
+readme_mlc_v3.11b.pdf
+Windows/
+Windows/redist.txt
+Windows/mlc.exe
 
