@@ -1,14 +1,15 @@
+```shell name=06-sharding/solution/test/scripts/test_search_distributed_four_shards.sh url=https://github.com/Aioann45/epl452/blob/3a121701e39e2e81c40234b678795ae64ad67659/06-sharding/solution/test/scripts/test_search_distributed_four_shards.sh
 #!/bin/bash
 
 set -e
 
-# Resolve the directory this script is in
+# Determine the absolute path of the directory containing this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Assume project root is two levels up from script location
+# Set the project root as two directories above the script location
 PROJECT_HOME="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Paths to binaries and data
+# Define paths to executables and relevant data files
 INDEXSERVER_BIN="$PROJECT_HOME/bin/indexserver"
 WEBSERVER_BIN="$PROJECT_HOME/bin/webserver"
 INDEX_FILE_0="$PROJECT_HOME/test/data/invertedindex-small.txt"
@@ -17,7 +18,7 @@ INDEX_FILE_2="$PROJECT_HOME/test/data/invertedindex-medium-0.txt"
 INDEX_FILE_3="$PROJECT_HOME/test/data/invertedindex-medium-1.txt"
 HTML_PATH="$PROJECT_HOME/web/static/index.html"
 
-# 100 consistent queries used by all benchmarks
+# Define a list of 100 pre-selected queries used for benchmarking
 QUERIES=(
 "adventure"
 "mystery"
@@ -144,8 +145,7 @@ QUERIES=(
 "love courage redemption hope"
 )
 
-
-# Function to get current time in milliseconds (requires GNU date)
+# Utility function to return the current timestamp in milliseconds (GNU date required)
 now_ms() {
   date +%s%3N
 }
@@ -158,7 +158,7 @@ echo "  Shard 2: $INDEX_FILE_2"
 echo "  Shard 3: $INDEX_FILE_3"
 echo
 
-# Start 4 indexserver shards
+# Launch 4 indexserver instances, each hosting a separate shard
 echo "Starting indexserver shard 0 on 127.0.0.1:9090..."
 "$INDEXSERVER_BIN" -rpc_addr="127.0.0.1:9090" -index_files="$INDEX_FILE_0" &
 PID0=$!
@@ -175,16 +175,16 @@ echo "Starting indexserver shard 3 on 127.0.0.1:9093..."
 "$INDEXSERVER_BIN" -rpc_addr="127.0.0.1:9093" -index_files="$INDEX_FILE_3" &
 PID3=$!
 
-# Wait a moment to ensure index servers are up
+# Pause briefly to give the index servers time to start up
 sleep 2
 
-# Start webserver with all 4 shards
+# Start the webserver configured to communicate with all four shards
 echo "Starting webserver on 0.0.0.0:8080..."
 SHARDS="127.0.0.1:9090,127.0.0.1:9091,127.0.0.1:9092,127.0.0.1:9093"
 "$WEBSERVER_BIN" -addr="0.0.0.0:8080" -shards="$SHARDS" -htmlPath="$HTML_PATH" -topk=100 &
 WEB_PID=$!
 
-# Wait a moment to ensure webserver is up
+# Allow additional time for the webserver to become available
 sleep 2
 
 echo
@@ -195,10 +195,11 @@ num_queries=${#QUERIES[@]}
 
 batch_start_ms=$(now_ms)
 
+# Loop through all queries, record and report latency for each, and accumulate total time
 for q in "${QUERIES[@]}"; do
   start_ms=$(now_ms)
 
-  # Execute query (quiet output, discard body)
+  # Submit search query (response is suppressed)
   curl -sG --data-urlencode "q=$q" "http://localhost:8080/api/search" >/dev/null
 
   end_ms=$(now_ms)
@@ -242,10 +243,12 @@ echo
 echo "Webserver:"
 ps -p "$WEB_PID" -o pid,cmd,%cpu,%mem,etime || echo "Web PID $WEB_PID not found"
 
-# Cleanup
+# Gracefully stop all background processes started by this script
 echo
 echo "Cleaning up..."
 kill "$PID0" "$PID1" "$PID2" "$PID3" "$WEB_PID" || true
 wait "$PID0" "$PID1" "$PID2" "$PID3" "$WEB_PID" 2>/dev/null || true
 
 echo "Test complete (4 shards)."
+
+```
