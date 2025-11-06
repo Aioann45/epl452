@@ -1,20 +1,21 @@
+```shell name=06-sharding/solution/test/scripts/test_search_distributed_one_shard.sh url=https://github.com/Aioann45/epl452/blob/50cc60134ebfcbbca72b3b9d760da72eee7507d4/06-sharding/solution/test/scripts/test_search_distributed_one_shard.sh
 #!/bin/bash
 
 set -e
 
-# Resolve the directory this script is in
+# Determine the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Assume project root is two levels up from script location
+# Assume the project root is two directories above the script location
 PROJECT_HOME="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Paths to binaries and data
+# Define paths for binaries and relevant data files
 INDEXSERVER_BIN="$PROJECT_HOME/bin/indexserver"
 WEBSERVER_BIN="$PROJECT_HOME/bin/webserver"
 INDEX_FILE="$PROJECT_HOME/test/data/invertedindex-medium.txt"
 HTML_PATH="$PROJECT_HOME/web/static/index.html"
 
-# 100 consistent queries used by all benchmarks
+# Array of 100 example queries—these are consistently used for all performance tests
 QUERIES=(
 "adventure"
 "mystery"
@@ -141,7 +142,7 @@ QUERIES=(
 "love courage redemption hope"
 )
 
-# Function to get current time in milliseconds (requires GNU date)
+# Helper function to get the current time in milliseconds (relies on GNU date)
 now_ms() {
   date +%s%3N
 }
@@ -150,20 +151,20 @@ echo "Project home: $PROJECT_HOME"
 echo "Using index: $INDEX_FILE"
 echo
 
-# Start indexserver shard in background
+# Launch the indexserver (shard) in the background and record its PID
 echo "Starting indexserver shard on 127.0.0.1:9090..."
 "$INDEXSERVER_BIN" -rpc_addr="127.0.0.1:9090" -index_files="$INDEX_FILE" &
 INDEX_PID=$!
 
-# Wait a moment to ensure indexserver is up
+# Pause briefly to allow indexserver to initialize
 sleep 2
 
-# Start webserver in background
+# Start the webserver process in the background and record its PID
 echo "Starting webserver on 0.0.0.0:8080..."
 "$WEBSERVER_BIN" -addr="0.0.0.0:8080" -shards="127.0.0.1:9090" -htmlPath="$HTML_PATH" -topk=10 &
 WEB_PID=$!
 
-# Wait a moment to ensure webserver is up
+# Pause to make sure the webserver is ready
 sleep 2
 
 echo
@@ -174,10 +175,11 @@ num_queries=${#QUERIES[@]}
 
 batch_start_ms=$(now_ms)
 
+# Loop through each query and submit it to the webserver, measuring latency
 for q in "${QUERIES[@]}"; do
   start_ms=$(now_ms)
 
-  # Execute query (quiet output, discard body)
+  # Issue the search query (output is suppressed)
   curl -sG --data-urlencode "q=$q" "http://localhost:8080/api/search" >/dev/null
 
   end_ms=$(now_ms)
@@ -212,10 +214,11 @@ echo
 echo "Webserver:"
 ps -p "$WEB_PID" -o pid,cmd,%cpu,%mem,etime || echo "Web PID $WEB_PID not found"
 
-# Cleanup: kill background servers
+# Terminate both background servers gracefully
 echo
 echo "Cleaning up..."
 kill "$INDEX_PID" "$WEB_PID" || true
 wait "$INDEX_PID" "$WEB_PID" 2>/dev/null || true
 
 echo "Done (1 shard)."
+```
