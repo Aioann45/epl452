@@ -2,20 +2,20 @@
 
 set -e
 
-# Resolve the directory this script is in
+# Determine the location of this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Assume project root is two levels up from script location
+# Assume the project root is two levels above the script directory
 PROJECT_HOME="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Paths to binaries and data
+# Define paths to necessary binaries and data files
 INDEXSERVER_BIN="$PROJECT_HOME/bin/indexserver"
 WEBSERVER_BIN="$PROJECT_HOME/bin/webserver"
 INDEX_FILE_0="$PROJECT_HOME/test/data/invertedindex-medium-0.txt"
 INDEX_FILE_1="$PROJECT_HOME/test/data/invertedindex-medium-1.txt"
 HTML_PATH="$PROJECT_HOME/web/static/index.html"
 
-# 100 consistent queries used by all benchmarks
+# List of 100 search queries for benchmark testing
 QUERIES=(
 "adventure"
 "mystery"
@@ -142,8 +142,7 @@ QUERIES=(
 "love courage redemption hope"
 )
 
-
-# Function to get current time in milliseconds (requires GNU date)
+# Helper function to get the current time in milliseconds (uses GNU date)
 now_ms() {
   date +%s%3N
 }
@@ -154,24 +153,25 @@ echo "  Shard 0: $INDEX_FILE_0"
 echo "  Shard 1: $INDEX_FILE_1"
 echo
 
-# Start indexserver shards in background
+# Launch the first indexserver shard in the background
 echo "Starting indexserver shard 0 on 127.0.0.1:9090..."
 "$INDEXSERVER_BIN" -rpc_addr="127.0.0.1:9090" -index_files="$INDEX_FILE_0" &
 PID1=$!
 
+# Launch the second indexserver shard in the background
 echo "Starting indexserver shard 1 on 127.0.0.1:9091..."
 "$INDEXSERVER_BIN" -rpc_addr="127.0.0.1:9091" -index_files="$INDEX_FILE_1" &
 PID2=$!
 
-# Wait a moment to ensure index servers are up
+# Give the indexservers a moment to start up
 sleep 2
 
-# Start webserver with both shards
+# Launch the webserver, connecting it to both indexserver shards
 echo "Starting webserver on 0.0.0.0:8080..."
 "$WEBSERVER_BIN" -addr="0.0.0.0:8080" -shards="127.0.0.1:9090,127.0.0.1:9091" -htmlPath="$HTML_PATH" -topk=100 &
 PID3=$!
 
-# Wait a moment to ensure webserver is up
+# Give the webserver time to initialize
 sleep 2
 
 echo
@@ -182,10 +182,11 @@ num_queries=${#QUERIES[@]}
 
 batch_start_ms=$(now_ms)
 
+# Loop through all queries and measure the latency for each
 for q in "${QUERIES[@]}"; do
   start_ms=$(now_ms)
 
-  # Execute query (quiet output, discard body)
+  # Make the search request (silent mode, discard output)
   curl -sG --data-urlencode "q=$q" "http://localhost:8080/api/search" >/dev/null
 
   end_ms=$(now_ms)
@@ -223,7 +224,7 @@ echo
 echo "Webserver:"
 ps -p "$PID3" -o pid,cmd,%cpu,%mem,etime || echo "PID $PID3 not found"
 
-# Cleanup
+# Clean up all background processes
 echo
 echo "Cleaning up..."
 kill "$PID1" "$PID2" "$PID3" || true
